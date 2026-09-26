@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>VK → Soulseek Downloader</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div class="container">
+    <h1>🎵 VK → Soulseek Downloader</h1>
+
+    <div class="card">
+        <h2>🎯 Fetch from VK (via browser extension)</h2>
+        <p class="hint">
+            Paste a VK playlist URL. The VK Tracklist Export extension will open
+            the playlist in the background and return the track list.
+        </p>
+        <input type="text" id="vkUrl"
+               placeholder="https://vk.ru/music/playlist/242727715_2944_c1b23f2d2dfdd210d5">
+        <button id="vkFetchBtn" disabled>Fetch track list from VK</button>
+        <div id="vkStatus" class="hint"></div>
+    </div>
+
+    <div class="card">
+        <h2>📋 Track List</h2>
+        <p class="hint">
+            Paste one track per line. Formats: <code>Artist - Title</code>,
+            <code>1. Artist - Title</code>, <code>Artist — Title (Album)</code>
+        </p>
+        <label>Playlist / Album Name (optional)</label>
+        <input type="text" id="playlistName" placeholder="e.g. Pretty Hate Machine">
+        <textarea id="trackList" placeholder="1. Nine Inch Nails - Head Like A Hole (Pretty Hate Machine)
+2. Nine Inch Nails - Terrible Lie (Pretty Hate Machine)"></textarea>
+        <button id="downloadBtn" disabled>⬇️ Download</button>
+    </div>
+
+    <div class="card">
+        <h2>📊 Progress</h2>
+        <div id="jobsList">
+            <div class="muted">No active jobs</div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>🌱 Seeders you downloaded from</h2>
+        <p class="hint">
+            These users shared files with you. If you liked what you got,
+            they may have more music you'd be interested in.
+        </p>
+        <div id="leechersList">
+            <div class="muted">No downloads yet</div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>⚙️ Settings</h2>
+        <button id="resetBtn" class="danger">Reset credentials</button>
+        <p class="hint" style="margin-top:10px;">
+            This clears <code>config.json</code> and <code>sockseek.conf</code>,
+            then returns you to the setup screen.
+        </p>
+    </div>
+</div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
