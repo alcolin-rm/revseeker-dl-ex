@@ -2,63 +2,105 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>VK → Soulseek Downloader</title>
+    <title>Revseeker</title>
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-<div class="container">
-    <h1>VK → Soulseek Downloader</h1>
+<div class="app">
 
-    <div class="card">
-        <h2>Fetch from VK (via browser extension)</h2>
-        <p class="hint">
-            Paste a VK playlist URL. The VK Tracklist Export extension will open
-            the playlist in the background and return the track list.
-        </p>
-        <input type="text" id="vkUrl"
-               placeholder="https://vk.ru/music/playlist/242727715_2944_c1b23f2d2dfdd210d5">
-        <button id="vkFetchBtn" disabled>Fetch track list from VK</button>
-        <div id="vkStatus" class="hint"></div>
-    </div>
+    <!-- LEFT COLUMN -->
+    <div class="left">
 
-    <div class="card">
-        <h2>Track List</h2>
-        <p class="hint">
-            Paste one track per line. Formats: <code>Artist - Title</code>,
-            <code>1. Artist - Title</code>, <code>Artist — Title (Album)</code>
-        </p>
-        <label>Playlist / Album Name (optional)</label>
-        <input type="text" id="playlistName" placeholder="e.g. Pretty Hate Machine">
-        <textarea id="trackList" placeholder="1. Nine Inch Nails - Head Like A Hole (Pretty Hate Machine)
-2. Nine Inch Nails - Terrible Lie (Pretty Hate Machine)"></textarea>
-        <button id="downloadBtn" disabled>⬇️ Download</button>
-    </div>
+        <header class="brand">
+            <button class="brand-btn" id="settingsBtn" title="Settings" aria-label="Open settings">Settings</button>
+            <div class="brand-name">Revseeker</div>
+            <div class="brand-spacer"></div>
+            <div class="account-chip" id="accountChip">
+                <span class="dot" id="accountDot"></span>
+                <span id="accountLabel">checking</span>
+            </div>
+        </header>
 
-    <div class="card">
-        <h2>Progress</h2>
-        <div id="jobsList">
-            <div class="muted">No active jobs</div>
+        <div class="settings-panel hidden" id="settingsPanel">
+            <div class="settings-row">
+                <div>
+                    <div class="settings-title">Soulseek account</div>
+                    <div class="settings-value" id="settingsUser">&mdash;</div>
+                </div>
+                <button id="resetBtn" class="danger-btn">Reset credentials</button>
+            </div>
+            <div class="settings-row">
+                <div>
+                    <div class="settings-title">Download folder</div>
+                    <div class="settings-value" id="settingsOutput">&mdash;</div>
+                </div>
+            </div>
+            <div class="settings-hint">
+                Resetting clears <code>config.json</code> and <code>sockseek.conf</code>,
+                then returns you to the setup screen.
+            </div>
         </div>
-    </div>
 
-    <div class="card">
-        <h2>Seeders you downloaded from</h2>
-        <p class="hint">
-            These users shared files with you. If you liked what you got,
-            they may have more music you'd be interested in.
-        </p>
-        <div id="leechersList">
-            <div class="muted">No downloads yet</div>
+        <div class="input-block">
+
+            <div class="album-row">
+                <input type="text" id="albumOrLink"
+                       placeholder="insert album / track name, or paste a VK playlist URL"
+                       spellcheck="false">
+                <label class="tickbox" title="Keep every track from one seeder folder">
+                    <input type="checkbox" id="preferOneSeeder" checked>
+                    <span class="box"></span>
+                </label>
+                <span class="tick-hint">prefer one folder / seeder</span>
+            </div>
+
+            <div class="action-row">
+                <button id="vkFetchBtn" class="secondary" disabled>Fetch from VK</button>
+                <button id="downloadBtn" class="primary" disabled>Download</button>
+            </div>
+
+            <div id="vkStatus" class="status"></div>
+
+            <textarea id="trackList"
+                      placeholder="insert track names"
+                      spellcheck="false"></textarea>
         </div>
+
+        <div class="logs-block hidden" id="logsBlock">
+            <div class="logs-header">
+                <div class="logs-title">logs</div>
+                <button class="ghost-sm" id="clearLogsBtn" title="Hide finished jobs">clear finished</button>
+            </div>
+            <div id="jobsList" class="logs-body"></div>
+        </div>
+
+        <div class="seeders-block hidden" id="seedersBlock">
+            <div class="logs-title">seeders</div>
+            <div id="leechersList" class="logs-body"></div>
+        </div>
+
     </div>
 
-    <div class="card">
-        <h2>Settings</h2>
-        <button id="resetBtn" class="danger">Reset credentials</button>
-        <p class="hint" style="margin-top:10px;">
-            This clears <code>config.json</code> and <code>sockseek.conf</code>,
-            then returns you to the setup screen.
-        </p>
+    <!-- RIGHT COLUMN -->
+    <div class="right">
+
+        <h1 class="right-heading">"fake soulseek"</h1>
+
+        <div class="browse-window">
+            <div class="browse-scroll" id="browseScroll">
+                <div class="muted" style="padding: 24px; text-align: center;">
+                    Search results will appear here when a job starts.
+                </div>
+            </div>
+
+            <div class="browse-footer">
+                <button class="bf-btn">Filter Help</button>
+                <select class="bf-select"><option>-- saved filters --</option></select>
+                <input type="text" class="bf-input">
+                <button class="bf-btn">Clear</button>
+                <button class="bf-btn">Save Filt</button>
+            </div>
+        </div>
     </div>
 </div>
 

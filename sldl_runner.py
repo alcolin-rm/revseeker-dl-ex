@@ -54,6 +54,120 @@ def write_csv(tracks: List[Dict], job_id: str) -> Path:
             })
     return csv_path
 
+async def run_search_phase(
+    tracks: List[Dict],
+    job_id: str,
+    log_cb: Optional[Callable[[str], None]] = None,
+) -> Dict[str, List[Dict]]:
+    """
+    Run Sockseek in --print results-full mode to get the candidate list
+    without downloading anything. Returns:
+        {
+            "seeder_name": [
+                {"path": "...", "size": 12345, "bitrate": 320, "length": 240},
+                ...
+            ],
+            ...
+        }
+    """
+    csv_path = write_csv(tracks, job_id)
+    config_path = Path(__file__).parent / "sockseek.conf"
+    search_log = LOG_DIR / f"{job_id}_search.log"
+
+    cmd = [
+        str(SLDL_BIN),
+        str(csv_path),
+        "--input-type", "csv",
+        "--config", str(config_path),
+        "--print", "results-full",
+        "--print-jobs",
+        "--log-file", str(search_log),
+        "--no-progress",
+        "--concurrent-searches", "1",
+        "--search-timeout", "15000",
+        "--pref-min-bitrate", "320",
+        "--pref-format", "flac,mp3",
+    ]
+
+    if log_cb:
+        log_cb(f"$ {' '.join(cmd)}")
+
+    proc = await asyncio.create_subprocess_exec(
+        *cmd,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.STDOUT,
+        cwd=str(Path(__file__).parent),
+    )
+
+    raw_output = []
+    async for line in proc.stdout:
+        text = line.decode("utf-8", errors="replace").rstrip()
+        raw_output.append(text)
+        if log_cb:
+            log_cb(f"[search] {text}")
+
+    await proc.wait()
+
+    # ── Parse the --print output ──
+    # Sockseek's format for results-full is roughly:
+    #   user: <username>
+    #     <path> | <size> | <bitrate> | <length>
+    #     <path> | <size> | <bitrate> | <length>
+    # We parse leniently so minor format changes don't break it.
+    grouped: Dict[str, List[Dict]] = {}
+    current_user = None
+
+    for line in raw_output:
+        stripped = line.strip()
+        if not stripped:
+            continue
+
+        # Seeder header — Sockseek prints something like "user: name" or "[name]"
+        m = re.match(r'^(?:user|username|peer)\s*[:=]\s*(.+)$', stripped, re.IGNORECASE)
+        if m:
+            current_user = m.group(1).strip()
+            grouped.setdefault(current_user, [])
+            continue
+
+        # Fallback: a line starting with a folder path, e.g. "username\Music\Album\..."
+        # In that case we treat the first path segment as the username.
+        if current_user is None and ("\\" in stripped or "/" in stripped):
+            first_seg = re.split(r'[\\/]', stripped)[0]
+            if first_seg and len(first_seg) < 60:
+                current_user = first_seg
+                grouped.setdefault(current_user, [])
+                # Do not continue — this line may also be a file entry
+
+        # Try to parse a file line
+        # Expected: <path> <size> <bitrate> <length> in some order, separated by spaces or pipes
+        parts = re.split(r'\s*\|\s*|\t+|\s{2,}', stripped)
+        if len(parts) >= 3:
+            path = parts[0]
+            size = None
+            bitrate = None
+            length = None
+
+            for p in parts[1:]:
+                p = p.strip()
+                if p.endswith("kbps") and p[:-4].isdigit():
+                    bitrate = int(p[:-4])
+                elif p.endswith("bps") and p[:-3].isdigit():
+                    bitrate = int(p[:-3])
+                elif re.match(r'^\d+m\d+s$', p) or re.match(r'^\d+:\d+', p):
+                    length = p
+                elif p.isdigit():
+                    size = int(p)
+
+            if current_user and path:
+                grouped[current_user].append({
+                    "path": path,
+                    "size": size,
+                    "bitrate": bitrate,
+                    "length": length,
+                })
+
+    return grouped
+
 
 # ──────────────────────────────────────────────────────────────
 # LOG PARSING

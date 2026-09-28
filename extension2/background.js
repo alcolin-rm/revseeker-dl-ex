@@ -113,14 +113,16 @@ function sleep(ms) {
 const REVSEEKER_BASE = "http://127.0.0.1:8000";
 const POLL_INTERVAL_MINUTES = 0.1;   // roughly 6 seconds
 
-// Register the alarm only on install, so we don't reset the timer
-// every time the service worker wakes up.
+// Register the alarm on install only. Chrome MV3 terminates the
+// service worker between wakes, and calling create() at the top
+// level would reset the timer each time the worker spins up.
 chrome.runtime.onInstalled.addListener(() => {
     chrome.alarms.create("revseeker-poll", { periodInMinutes: POLL_INTERVAL_MINUTES });
 });
 
-// Also register when the background script first loads, in case the
-// extension was reloaded without firing onInstalled.
+// Belt and suspenders: if the worker was reloaded without onInstalled
+// firing (e.g. after a manual reload in chrome://extensions), make
+// sure the alarm still exists.
 chrome.alarms.get("revseeker-poll", (existing) => {
     if (!existing) {
         chrome.alarms.create("revseeker-poll", { periodInMinutes: POLL_INTERVAL_MINUTES });
@@ -159,7 +161,7 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
             body: JSON.stringify({ id: cmd.id, result }),
         });
     } catch (e) {
-        // If this fails the web app will time out waiting for the result.
+        // Web app went away; the caller will time out waiting for the result.
     }
 });
 

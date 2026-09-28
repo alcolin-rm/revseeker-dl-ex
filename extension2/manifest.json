@@ -13,18 +13,11 @@
   ],
 
   "background": {
-    "service_worker": "background.js",
-    "scripts": ["background.js"]
+    "service_worker": "background.js"
   },
 
   "action": {
     "default_popup": "popup.html",
     "default_title": "VK Tracklist Export"
-  },
-
-  "browser_specific_settings": {
-    "gecko": {
-      "id": "vk-tracklist-export@yourname.com"
-    }
   }
 }
