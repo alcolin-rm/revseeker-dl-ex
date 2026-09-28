@@ -1,0 +1,32 @@
+{
+  "manifest_version": 3,
+  "name": "VK Tracklist Export",
+  "version": "1.0.0",
+  "description": "Exports VK playlist track lists. Can be commanded by the local Revseeker web app.",
+
+  "permissions": ["scripting", "tabs", "downloads", "alarms"],
+  "host_permissions": ["https://vk.com/*", "https://vk.ru/*"],
+
+  "background": {
+    "service_worker": "background.js",
+    "scripts": ["background.js"]
+  },
+
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "VK Tracklist Export"
+  },
+
+  "externally_connectable": {
+    "matches": [
+      "http://localhost:8000/*",
+      "http://127.0.0.1:8000/*"
+    ]
+  },
+
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "vk-tracklist-export@yourname.com"
+    }
+  }
+}
