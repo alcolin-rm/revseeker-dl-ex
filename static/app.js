@@ -66,9 +66,10 @@ async function fetchFromVK() {
             throw new Error(result.error);
         }
 
-        const lines = result.tracks.map(
-            (t, i) => `${i + 1}. ${t.artist} - ${t.title}`
-        );
+        const lines = result.tracks.map((t, i) => {
+            const dur = t.duration ? ` [${t.duration}]` : '';
+            return `${i + 1}. ${t.artist} - ${t.title}${dur}`;
+        });
         const trackList = document.getElementById('trackList');
         trackList.value = lines.join('\n');
 
@@ -156,6 +157,34 @@ async function fetchJobs() {
 // Jobs panel
 // ──────────────────────────────────────────────────────────────
 
+// Snapshot the current scroll positions of any open log pre blocks
+// so we can restore them after re-rendering.
+function captureLogScrolls() {
+    const map = {};
+    document.querySelectorAll('pre[data-logid]').forEach(el => {
+        map[el.dataset.logid] = {
+            top: el.scrollTop,
+            height: el.scrollHeight,
+        };
+    });
+    return map;
+}
+
+function restoreLogScrolls(map) {
+    document.querySelectorAll('pre[data-logid]').forEach(el => {
+        const saved = map[el.dataset.logid];
+        if (!saved) return;
+        const grew = el.scrollHeight > saved.height;
+        const atBottom = saved.top + el.clientHeight >= saved.height - 5;
+        if (atBottom && grew) {
+            // User was already at the bottom; keep them there
+            el.scrollTop = el.scrollHeight;
+        } else {
+            el.scrollTop = saved.top;
+        }
+    });
+}
+
 function renderJobs(jobs) {
     const block = document.getElementById('logsBlock');
     const el = document.getElementById('jobsList');
@@ -167,9 +196,16 @@ function renderJobs(jobs) {
     }
     block.classList.remove('hidden');
 
+    // Snapshot scroll positions before replacing DOM
+    const scrolls = captureLogScrolls();
+
+    // Snapshot the outer panel scroll too
+    const outerTop = block.scrollTop;
+
     el.innerHTML = entries.map(j => {
         const pct = (j.progress || 0) * 100;
-        const log = (j.log || []).slice(-50).join('\n');
+        // Last 40 lines only, keep the HTML small enough for 2s repaints
+        const log = (j.log || []).slice(-40).join('\n');
         const folder = j.folder_name ? ` -> ${escapeHtml(j.folder_name)}` : '';
         return `
             <div class="job ${j.status}" data-jobid="${j.id}">
@@ -185,10 +221,14 @@ function renderJobs(jobs) {
                     ${j.downloaded || 0} / ${j.total || 0} downloaded |
                     ${j.failed || 0} failed
                 </div>
-                ${log ? `<pre>${escapeHtml(log)}</pre>` : ''}
+                ${log ? `<pre data-logid="${j.id}">${escapeHtml(log)}</pre>` : ''}
             </div>
         `;
     }).join('');
+
+    // Restore scroll positions
+    restoreLogScrolls(scrolls);
+    block.scrollTop = outerTop;
 }
 
 function clearFinishedJobs() {
@@ -230,71 +270,101 @@ function renderLeechers(jobs) {
     }
     block.classList.remove('hidden');
 
+    // Preserve scroll
+    const top = block.scrollTop;
+
     el.innerHTML = entries.map(([user, count]) => `
         <div class="leecher-row">
             <span class="leecher-name">${escapeHtml(user)}</span>
             <span class="leecher-count">${count} file${count === 1 ? '' : 's'}</span>
         </div>
     `).join('');
+
+    block.scrollTop = top;
 }
 
 // ──────────────────────────────────────────────────────────────
-// Fake Soulseek panel
+// Fake soulseek panel - live download feed
 // ──────────────────────────────────────────────────────────────
 
 function renderBrowseWindow(jobs) {
     const scroll = document.getElementById('browseScroll');
 
-    const withResults = Object.values(jobs)
-        .filter(j => j.search_results && Object.keys(j.search_results).length > 0)
+    // Collect entries from every job, newest job first
+    const entries = [];
+    const orderedJobs = Object.values(jobs)
         .sort((a, b) => (b.created || '').localeCompare(a.created || ''));
 
-    if (!withResults.length) {
+    for (const job of orderedJobs) {
+        for (const entry of (job.browse_entries || [])) {
+            entries.push({ ...entry, jobId: job.id });
+        }
+    }
+
+    if (!entries.length) {
         scroll.innerHTML = `
             <div class="muted" style="padding: 24px; text-align: center;">
-                Search results will appear here when a job starts.
+                Files will appear here as the downloader picks seeders.
             </div>`;
         return;
     }
 
-    const results = withResults[0].search_results;
+    // Preserve scroll if user was near the bottom
+    const prevTop = scroll.scrollTop;
+    const prevHeight = scroll.scrollHeight;
+    const wasAtBottom = prevTop + scroll.clientHeight >= prevHeight - 10;
 
-    const seeders = Object.entries(results)
-        .map(([name, files]) => ({
-            name,
-            files: files.slice().sort((a, b) =>
-                (a.path || '').localeCompare(b.path || '')
-            ),
-        }))
-        .sort((a, b) => b.files.length - a.files.length);
+    // Group by seeder
+    const bySeeder = {};
+    for (const e of entries) {
+        const s = e.seeder;
+        if (!bySeeder[s]) bySeeder[s] = [];
+        bySeeder[s].push(e);
+    }
 
-    scroll.innerHTML = seeders.map(seeder => {
-        const rows = seeder.files.map(f => {
-            const filename = (f.path || '').split(/[\\/]/).pop() || f.path || '';
-            const size = f.size ? f.size.toLocaleString() : '';
-            const attrs = [
-                f.bitrate ? `${f.bitrate}kbps` : '',
-                f.length || '',
-            ].filter(Boolean).join(', ');
+    const seeders = Object.entries(bySeeder)
+        .sort((a, b) => b[1].length - a[1].length);
+
+    scroll.innerHTML = seeders.map(([seeder, list]) => {
+        // Sort: active first, then done, then failed; within a group by filename
+        const order = { active: 0, done: 1, failed: 2 };
+        list.sort((a, b) => {
+            const d = order[a.state] - order[b.state];
+            if (d !== 0) return d;
+            const fa = (a.path || '').split(/[\\/]/).pop() || '';
+            const fb = (b.path || '').split(/[\\/]/).pop() || '';
+            return fa.localeCompare(fb);
+        });
+
+        const rows = list.map(e => {
+            const filename = (e.path || '').split(/[\\/]/).pop() || e.path || '';
+            const dotClass = `dot-${e.state}`;
             return `<tr>
+                <td class="dot-cell"><span class="status-dot ${dotClass}"></span></td>
                 <td>${escapeHtml(filename)}</td>
-                <td>${escapeHtml(size)}</td>
-                <td>${escapeHtml(attrs)}</td>
+                <td class="track-cell">${escapeHtml(e.track)}</td>
             </tr>`;
         }).join('');
 
         return `
             <div class="browse-folder">
-                <div class="folder-path">${escapeHtml(seeder.name)} (${seeder.files.length} files)</div>
+                <div class="folder-path">${escapeHtml(seeder)} (${list.length} file${list.length === 1 ? '' : 's'})</div>
                 <table class="file-table">
                     <thead>
-                        <tr><th>File</th><th>Size</th><th>Attributes</th></tr>
+                        <tr><th></th><th>File</th><th>Track</th></tr>
                     </thead>
                     <tbody>${rows}</tbody>
                 </table>
             </div>
         `;
     }).join('');
+
+    // Auto-follow if user was at bottom
+    if (wasAtBottom) {
+        scroll.scrollTop = scroll.scrollHeight;
+    } else {
+        scroll.scrollTop = prevTop;
+    }
 }
 
 // ──────────────────────────────────────────────────────────────

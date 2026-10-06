@@ -18,12 +18,6 @@ from fastapi.staticfiles import StaticFiles
 
 from sldl_runner import parse_track_list, run_sldl
 
-try:
-    from sldl_runner import run_search_phase
-    HAS_SEARCH_PHASE = True
-except ImportError:
-    HAS_SEARCH_PHASE = False
-
 BASE_DIR = Path(__file__).parent
 CONFIG_PATH = BASE_DIR / "config.json"
 SOULSEEK_CONF_PATH = BASE_DIR / "sockseek.conf"
@@ -44,7 +38,7 @@ jobs: Dict[str, Dict] = {}
 
 
 # ──────────────────────────────────────────────────────────────
-# CONFIG HELPERS
+# CONFIG
 # ──────────────────────────────────────────────────────────────
 
 def load_config() -> Dict:
@@ -72,7 +66,7 @@ pref-min-bitrate = 320
 pref-strict-title = true
 pref-strict-artist = true
 pref-strict-album = true
-pref-length-tol = 3
+pref-length-tol = 5
 output-dir = {output_dir}
 """
     SOULSEEK_CONF_PATH.write_text(content, encoding="utf-8")
@@ -84,7 +78,7 @@ def is_configured() -> bool:
 
 
 # ──────────────────────────────────────────────────────────────
-# FOLDER NAME DERIVATION
+# FOLDER NAME
 # ──────────────────────────────────────────────────────────────
 
 def sanitize_folder_name(name: str) -> str:
@@ -96,21 +90,18 @@ def sanitize_folder_name(name: str) -> str:
 def derive_folder_name(tracks: List[Dict], playlist_name: Optional[str] = None) -> str:
     if playlist_name and playlist_name.strip():
         return sanitize_folder_name(playlist_name.strip())
-
     albums = [t.get("album", "").strip() for t in tracks if t.get("album", "").strip()]
     if albums:
         most_common, _ = Counter(albums).most_common(1)[0]
         return sanitize_folder_name(most_common)
-
     if tracks:
         first = tracks[0]
         return sanitize_folder_name(f"{first['artist']} - {first['title']}")
-
     return "sockseek_job"
 
 
 # ──────────────────────────────────────────────────────────────
-# EXTENSION BRIDGE (polling, cross-browser)
+# EXTENSION BRIDGE
 # ──────────────────────────────────────────────────────────────
 
 _extension_inbox: Dict[str, Dict] = {}
@@ -121,7 +112,6 @@ _extension_last_seen = {"t": 0.0}
 
 @app.get("/api/extension/inbox")
 async def extension_inbox():
-    """Extension polls this every few seconds for a pending command."""
     _extension_last_seen["t"] = time.time()
     with _extension_lock:
         if _extension_inbox:
@@ -132,7 +122,6 @@ async def extension_inbox():
 
 @app.post("/api/extension/result")
 async def extension_result(payload: dict):
-    """Extension POSTs the extraction result here."""
     cmd_id = payload.get("id")
     if not cmd_id:
         raise HTTPException(status_code=400, detail="Missing id")
@@ -143,7 +132,6 @@ async def extension_result(payload: dict):
 
 @app.get("/api/extension/status")
 async def extension_status():
-    """Web app queries this to know whether the extension is alive."""
     delta = time.time() - _extension_last_seen["t"]
     return JSONResponse({
         "alive": delta < 15,
@@ -153,7 +141,6 @@ async def extension_status():
 
 @app.post("/api/vk-command")
 async def vk_command(playlist_url: str = Form(...)):
-    """Web app enqueues a command for the extension to pick up."""
     if not playlist_url.strip():
         raise HTTPException(status_code=400, detail="Missing playlist URL")
     cmd_id = str(uuid.uuid4())
@@ -168,7 +155,6 @@ async def vk_command(playlist_url: str = Form(...)):
 
 @app.get("/api/vk-command/{command_id}")
 async def vk_command_status(command_id: str):
-    """Web app polls this for the result of a submitted command."""
     with _extension_lock:
         if command_id in _extension_results:
             return JSONResponse({
@@ -179,7 +165,7 @@ async def vk_command_status(command_id: str):
 
 
 # ──────────────────────────────────────────────────────────────
-# SETUP ROUTES
+# SETUP
 # ──────────────────────────────────────────────────────────────
 
 @app.get("/setup", response_class=HTMLResponse)
@@ -248,8 +234,22 @@ async def index(request: Request):
 
 
 # ──────────────────────────────────────────────────────────────
-# DOWNLOAD ENDPOINTS
+# DOWNLOAD
 # ──────────────────────────────────────────────────────────────
+
+# `SongJob: downloading: <track>: <seeder>\<path>`
+RE_DOWNLOADING = re.compile(
+    r'SongJob:\s+downloading:\s+(.+?):\s+([^\\]+)\\(.+)$'
+)
+# `SongJob: succeeded: <track>: <seeder>\<path>`
+RE_SUCCESS = re.compile(
+    r'SongJob:\s+succeeded:\s+(.+?):\s+([^\\]+)\\'
+)
+# `SongJob: failed [reason]: <track>` or `SongJob: download attempt failed: <track>: <seeder>\...`
+RE_FAILED = re.compile(
+    r'SongJob:\s+(?:download attempt failed|failed\s*\[[^\]]*\]):\s+(.+?)(?::|$)'
+)
+
 
 @app.post("/api/download")
 async def download(
@@ -283,7 +283,8 @@ async def download(
         "tracks": tracks,
         "leechers": {},
         "counted_tracks": [],
-        "search_results": {},
+        "browse_entries": [],
+        "browse_index": {},
     }
 
     def progress_cb(current: int, total: int, message: str = ""):
@@ -297,36 +298,53 @@ async def download(
         if len(job["log"]) > 500:
             job["log"] = job["log"][-500:]
 
-        m = re.search(r'SongJob:\s+succeeded:\s+(.+?):\s+([^\\]+)\\', line)
-        if not m:
-            return
+        # Live feed: file just started downloading
+        dm = RE_DOWNLOADING.search(line)
+        if dm:
+            track_key = dm.group(1).strip()
+            username = dm.group(2).strip()
+            filepath = dm.group(3).strip()
+            key = f"{track_key}|{username}"
+            if key not in job["browse_index"]:
+                idx = len(job["browse_entries"])
+                job["browse_index"][key] = idx
+                job["browse_entries"].append({
+                    "track": track_key,
+                    "seeder": username,
+                    "path": filepath,
+                    "state": "active",
+                })
 
-        track_key = m.group(1).strip()
-        username = m.group(2).strip()
+        # Live feed: file completed
+        sm = RE_SUCCESS.search(line)
+        if sm:
+            track_key = sm.group(1).strip()
+            username = sm.group(2).strip()
+            key = f"{track_key}|{username}"
+            if key in job["browse_index"]:
+                idx = job["browse_index"][key]
+                job["browse_entries"][idx]["state"] = "done"
 
-        if track_key in job["counted_tracks"]:
-            return
-        job["counted_tracks"].append(track_key)
-        job["leechers"][username] = job["leechers"].get(username, 0) + 1
+            # Seeder counter, dedup by (track, seeder)
+            if key not in job["counted_tracks"]:
+                job["counted_tracks"].append(key)
+                job["leechers"][username] = job["leechers"].get(username, 0) + 1
+
+        # Live feed: mark as failed only if there is no success for the pair
+        fm = RE_FAILED.search(line)
+        if fm:
+            track_key = fm.group(1).strip()
+            # We don't know which seeder failed from this line alone,
+            # so just record it against the first active entry for this track.
+            for entry in job["browse_entries"]:
+                if entry["track"] == track_key and entry["state"] == "active":
+                    entry["state"] = "failed"
+                    break
 
     async def run():
         try:
-            # Optional search phase for the fake-soulseek panel
-            if HAS_SEARCH_PHASE:
-                jobs[job_id]["status"] = "searching"
-                jobs[job_id]["message"] = "Searching Soulseek for candidates..."
-                try:
-                    search_results = await run_search_phase(tracks, job_id, log_cb)
-                    jobs[job_id]["search_results"] = search_results
-                    jobs[job_id]["message"] = (
-                        f"Found candidates from {len(search_results)} seeders. Starting download..."
-                    )
-                except Exception as e:
-                    jobs[job_id]["search_results"] = {}
-                    jobs[job_id]["log"].append(f"Search phase failed: {e}")
-                    jobs[job_id]["message"] = "Search preview failed, starting download..."
-
             jobs[job_id]["status"] = "running"
+            jobs[job_id]["message"] = "Starting download..."
 
             result = await run_sldl(
                 tracks=tracks,
@@ -402,7 +420,6 @@ if __name__ == "__main__":
     print("")
     print(f"  Config: {CONFIG_PATH}")
     print(f"  Soulseek conf: {SOULSEEK_CONF_PATH}")
-    print(f"  Search phase: {'enabled' if HAS_SEARCH_PHASE else 'disabled'}")
     print("")
     print("  Server: http://127.0.0.1:8000")
     print("=" * 60 + "\n")

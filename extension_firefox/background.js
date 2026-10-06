@@ -228,6 +228,7 @@ async function extractPlaylistFromPage() {
                     tracks.push({
                         artist: t.artist || 'Unknown',
                         title: t.title || 'Unknown',
+                        duration: t.duration || 0,
                     });
                 }
             }

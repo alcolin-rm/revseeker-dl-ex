@@ -309,7 +309,31 @@ body {
 .status.error { color: #c02020; }
 .status.success { color: #1a7a3a; }
 .status.info { color: #1c2c54; }
+/* Status dots in the fake soulseek table */
+.status-dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    vertical-align: middle;
+}
+.dot-active { background: #1c6ec8; animation: pulse 1.2s ease-in-out infinite; }
+.dot-done   { background: #1a7a3a; }
+.dot-failed { background: #c02020; }
 
+@keyframes pulse {
+    0%, 100% { opacity: 1.0; }
+    50%      { opacity: 0.35; }
+}
+
+.file-table thead th:nth-child(1) { width: 24px; text-align: center; }
+.file-table tbody td.dot-cell {
+    width: 24px;
+    text-align: center;
+    padding: 3px 4px;
+}
+.file-table tbody td:nth-child(2) { width: 55%; }
+.file-table tbody td:nth-child(3) { width: 40%; color: #666; font-size: 0.95em; }
 #trackList {
     width: 100%;
     min-height: 220px;
@@ -450,6 +474,7 @@ body {
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    padding-right: 4px;
 }
 
 .right-heading {
@@ -556,3 +581,77 @@ body {
 /* ──────────── Utility ──────────── */
 
 .hidden { display: none !important; }
+/* Single grey surface for the whole right column body */
+.right-surface {
+    background: #e8e8e8;
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    flex: 1;
+    min-height: 0;
+}
+
+/* Live feed sits inside the surface */
+.browse-window {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: 55vh;
+}
+
+/* Footer separator stays inside the surface */
+.browse-footer {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    background: #d8d8d8;
+    border-top: 1px solid #bbb;
+    flex-shrink: 0;
+}
+
+/* Disclaimer shares the same grey, separated by a divider */
+.expect-panel {
+    padding: 16px 22px 18px;
+    border-top: 1px solid #c8c8c8;
+    flex-shrink: 0;
+}
+
+.expect-title {
+    font-size: 1.15em;
+    color: #111;
+    margin-bottom: 10px;
+    font-weight: 400;
+}
+
+.expect-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.expect-list li {
+    font-size: 0.82em;
+    line-height: 1.5;
+    color: #333;
+    padding-left: 14px;
+    position: relative;
+}
+
+.expect-list li::before {
+    content: '\2014';
+    position: absolute;
+    left: 0;
+    color: #1c2c54;
+}
+
+.expect-list strong {
+    color: #1c2c54;
+    font-weight: 600;
+}
