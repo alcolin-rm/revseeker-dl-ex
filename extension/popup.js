@@ -43,10 +43,10 @@ async function extractCurrent() {
         const result = await sendToBackground({ action: 'extractFromActiveTab' });
         if (result.error) throw new Error(result.error);
         lastResult = result;
-        setStatus(`✅ Found ${result.total} tracks`, 'success');
+        setStatus(`Found ${result.total} tracks`, 'success');
         return result;
     } catch (e) {
-        setStatus(`❌ ${e.message}`, 'error');
+        setStatus(e.message, 'error');
         throw e;
     } finally {
         exportBtn.disabled = false;
@@ -69,11 +69,8 @@ exportBtn.addEventListener('click', async () => {
             saveAs: true,
         });
 
-        // Revoke the object URL once the download has started
         setTimeout(() => URL.revokeObjectURL(url), 10000);
-    } catch (_) {
-        // Error already shown by extractCurrent
-    }
+    } catch (_) {}
 });
 
 copyBtn.addEventListener('click', async () => {
@@ -81,8 +78,8 @@ copyBtn.addEventListener('click', async () => {
         const result = lastResult || await extractCurrent();
         const text = formatTracks(result);
         await navigator.clipboard.writeText(text);
-        setStatus(`✅ Copied ${result.total} tracks to clipboard`, 'success');
+        setStatus(`Copied ${result.total} tracks`, 'success');
     } catch (e) {
-        setStatus(`❌ ${e.message}`, 'error');
+        setStatus(e.message, 'error');
     }
 });
