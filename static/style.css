@@ -2,7 +2,7 @@
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 body {
-    font-family: 'Segoe UI', 'Inter', system-ui, sans-serif;
+    font-family: 'Bahnschrift', 'Segoe UI Variable', 'Segoe UI', 'Inter', system-ui, sans-serif;
     background: #1c2c54;
     color: #111;
     height: 100vh;
@@ -71,7 +71,7 @@ body {
     border-radius: 999px;
     font-size: 0.85em;
     color: #333;
-    font-family: 'Consolas', monospace;
+    font-family: 'Bahnschrift', 'Consolas', monospace;
 }
 .account-chip .dot {
     width: 9px; height: 9px;
@@ -142,7 +142,7 @@ body {
     padding: 8px 12px;
     border: 2px solid #e8a648;
     border-radius: 6px;
-    font-family: 'Consolas', monospace;
+    font-family: 'Bahnschrift', 'Consolas', monospace;
     font-size: 0.9em;
     background: #fff;
 }
@@ -173,7 +173,7 @@ body {
     margin-bottom: 2px;
 }
 .settings-value {
-    font-family: 'Consolas', monospace;
+    font-family: 'Bahnschrift', 'Consolas', monospace;
     font-size: 0.92em;
     color: #111;
     word-break: break-all;
@@ -342,7 +342,7 @@ body {
     border-radius: 6px;
     padding: 12px 14px;
     font-size: 1.15em;
-    font-family: 'Consolas', monospace;
+    font-family: 'Bahnschrift', 'Consolas', monospace;
     resize: vertical;
     line-height: 1.4;
 }
@@ -373,7 +373,7 @@ body {
 }
 .logs-body {
     overflow-y: auto;
-    font-family: 'Consolas', monospace;
+    font-family: 'Bahnschrift', 'Consolas', monospace;
     font-size: 0.78em;
     line-height: 1.5;
     max-height: 340px;
@@ -402,7 +402,7 @@ body {
     border-left: 3px solid #1c2c54;
     border-radius: 4px;
     margin-bottom: 6px;
-    font-family: 'Consolas', monospace;
+    font-family: 'Bahnschrift', 'Consolas', monospace;
 }
 .job.complete { border-left-color: #1a7a3a; }
 .job.partial  { border-left-color: #c08020; }
@@ -462,7 +462,7 @@ body {
     justify-content: space-between;
     padding: 4px 0;
     border-bottom: 1px solid #d0d0d0;
-    font-family: 'Consolas', monospace;
+    font-family: 'Bahnschrift', 'Consolas', monospace;
 }
 .leecher-row:last-child { border-bottom: none; }
 .leecher-name  { color: #1c2c54; }
@@ -508,7 +508,7 @@ body {
 .folder-path {
     background: #fff;
     padding: 4px 12px;
-    font-family: 'Consolas', monospace;
+    font-family: 'Bahnschrift', 'Consolas', monospace;
     font-size: 0.82em;
     color: #333;
     border-top: 1px solid #ccc;
@@ -518,7 +518,7 @@ body {
 .file-table {
     width: 100%;
     border-collapse: collapse;
-    font-family: 'Consolas', monospace;
+    font-family: 'Bahnschrift', 'Consolas', monospace;
     font-size: 0.78em;
     background: #fff;
 }

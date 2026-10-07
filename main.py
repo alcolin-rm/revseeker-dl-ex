@@ -37,9 +37,9 @@ app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 jobs: Dict[str, Dict] = {}
 
 
-# ──────────────────────────────────────────────────────────────
+#
 # CONFIG
-# ──────────────────────────────────────────────────────────────
+#
 
 def load_config() -> Dict:
     if CONFIG_PATH.exists():
@@ -77,9 +77,9 @@ def is_configured() -> bool:
     return bool(cfg.get("configured")) and SOULSEEK_CONF_PATH.exists()
 
 
-# ──────────────────────────────────────────────────────────────
+#
 # FOLDER NAME
-# ──────────────────────────────────────────────────────────────
+#
 
 def sanitize_folder_name(name: str) -> str:
     name = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "_", name)
@@ -100,9 +100,9 @@ def derive_folder_name(tracks: List[Dict], playlist_name: Optional[str] = None) 
     return "sockseek_job"
 
 
-# ──────────────────────────────────────────────────────────────
+#
 # EXTENSION BRIDGE
-# ──────────────────────────────────────────────────────────────
+#
 
 _extension_inbox: Dict[str, Dict] = {}
 _extension_results: Dict[str, Dict] = {}
@@ -164,9 +164,9 @@ async def vk_command_status(command_id: str):
     return JSONResponse({"status": "pending"})
 
 
-# ──────────────────────────────────────────────────────────────
+#
 # SETUP
-# ──────────────────────────────────────────────────────────────
+#
 
 @app.get("/setup", response_class=HTMLResponse)
 async def setup_page():
@@ -221,9 +221,9 @@ async def reset_config():
     return JSONResponse({"success": True})
 
 
-# ──────────────────────────────────────────────────────────────
+#
 # MAIN UI
-# ──────────────────────────────────────────────────────────────
+#
 
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
@@ -233,9 +233,9 @@ async def index(request: Request):
     return HTMLResponse(content=html)
 
 
-# ──────────────────────────────────────────────────────────────
+#
 # DOWNLOAD
-# ──────────────────────────────────────────────────────────────
+#
 
 # `SongJob: downloading: <track>: <seeder>\<path>`
 RE_DOWNLOADING = re.compile(

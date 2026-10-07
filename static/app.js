@@ -454,10 +454,25 @@ document.addEventListener('DOMContentLoaded', () => {
     const albumOrLink   = document.getElementById('albumOrLink');
     const trackListArea = document.getElementById('trackList');
 
+    function looksLikeVKUrl(val) {
+        if (!val) return false;
+        const v = val.trim().toLowerCase();
+        // Accept with or without scheme
+        if (/^(https?:\/\/)?(www\.)?vk\.(com|ru)\//.test(v)) return true;
+        // Accept fragment forms
+        if (/(music\/playlist|audio_playlist)[\/_]/i.test(v)) return true;
+        return false;
+    }
+
     function updateButtons() {
-        const val = albumOrLink.value.trim();
-        vkFetchBtn.disabled  = !val.startsWith('http');
-        downloadBtn.disabled = !trackListArea.value.trim();
+        const linkVal  = albumOrLink.value.trim();
+        const trackVal = trackListArea.value.trim();
+
+        vkFetchBtn.disabled  = !looksLikeVKUrl(linkVal);
+
+        const isUrl = looksLikeVKUrl(linkVal);
+        const hasAlbumOrTrack = isUrl ? false : linkVal.length > 0;
+        downloadBtn.disabled = !(trackVal || hasAlbumOrTrack);
     }
 
     downloadBtn.addEventListener('click', startDownload);
@@ -466,9 +481,16 @@ document.addEventListener('DOMContentLoaded', () => {
     vkFetchBtn.addEventListener('click', fetchFromVK);
     clearLogsBtn.addEventListener('click', clearFinishedJobs);
 
-    albumOrLink.addEventListener('input', updateButtons);
-    trackListArea.addEventListener('input', updateButtons);
+        // Fire on every plausible change path
+    ['input', 'change', 'keyup', 'paste', 'blur'].forEach(evt => {
+        albumOrLink.addEventListener(evt, () => setTimeout(updateButtons, 0));
+    });
+    ['input', 'change', 'keyup', 'paste', 'blur'].forEach(evt => {
+        trackListArea.addEventListener(evt, () => setTimeout(updateButtons, 0));
+    });
 
+    // Safety net for programmatic .value changes
+    setInterval(updateButtons, 500);
     document.getElementById('jobsList').addEventListener('click', (e) => {
         const btn = e.target.closest('button[data-joblog]');
         if (btn) openFullLog(btn.dataset.joblog);
